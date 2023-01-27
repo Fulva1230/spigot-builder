@@ -17,6 +17,9 @@
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
+      },
+      "environment": {
+        "PATH": "$penv{PATH};C:\\Qt\\6.2.4\\msvc2019_64\\bin"
       }
     },
     {
