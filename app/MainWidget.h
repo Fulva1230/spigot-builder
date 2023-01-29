@@ -2,7 +2,7 @@
 
 #include "QWidget"
 
-class QFile;
+class QSaveFile;
 class QNetworkAccessManager;
 class QVBoxLayout;
 class QPushButton;
@@ -16,12 +16,12 @@ public:
 	MainWidget();
 
 private slots:
-	void requestDownloadFile();
+	void downloadButtonFired();
 private:
 	QVBoxLayout* layout;
 	QPushButton* downloadButton;
 	QLabel* statusLabel;
 	QNetworkAccessManager* netManager;
 	QNetworkReply* downloadReply = nullptr;
-	QFile* downloadFile = nullptr;
+	QSaveFile* downloadFile = nullptr;
 };
