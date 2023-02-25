@@ -2,6 +2,7 @@
 
 #include "QWidget"
 
+class QProgressBar;
 class QSaveFile;
 class QNetworkAccessManager;
 class QVBoxLayout;
@@ -21,6 +22,7 @@ private:
 	QVBoxLayout* layout;
 	QPushButton* downloadButton;
 	QLabel* statusLabel;
+	QProgressBar* downloadStatusBar;
 	QNetworkAccessManager* netManager;
 	QNetworkReply* downloadReply = nullptr;
 	QSaveFile* downloadFile = nullptr;
