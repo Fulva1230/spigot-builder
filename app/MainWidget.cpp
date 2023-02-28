@@ -1,7 +1,5 @@
 #include "MainWidget.h"
 
-#include <qmetaobject.h>
-
 #include "QPushButton"
 #include "QLabel"
 #include "QVBoxLayout"
@@ -9,6 +7,10 @@
 #include "QtNetwork/QNetworkReply"
 #include "QProgressBar"
 #include "QSaveFile"
+
+#include "archive.h"
+#include "archive_entry.h"
+#include "archive_entry.h"
 
 static QString downloadURL =
 	"https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar";
@@ -22,10 +24,12 @@ MainWidget::MainWidget():
 	netManager(new QNetworkAccessManager(this)),
 	downloadFile(new QSaveFile("./BuildTools.jar", this)),
 	downloadJdkButton(new QPushButton("Download Jdk")),
-	jdkSavedFile(new QSaveFile("./jdk17.zip", this))
+	jdkSavedFile(new QSaveFile("./jdk17.zip", this)),
+	unzipButton(new QPushButton("Unzip"))
 {
 	layout->addWidget(downloadButton);
 	layout->addWidget(downloadJdkButton);
+	layout->addWidget(unzipButton);
 	layout->addWidget(statusLabel);
 	layout->addWidget(downloadStatusBar);
 	downloadStatusBar->setValue(0);
@@ -33,6 +37,11 @@ MainWidget::MainWidget():
 
 	connect(downloadButton, &QPushButton::clicked, this, &MainWidget::downloadButtonFired);
 	connect(downloadJdkButton, &QPushButton::clicked, this, &MainWidget::downloadJdkButtonFired);
+	connect(unzipButton, &QPushButton::clicked, this, &MainWidget::unzipButtonFired);
+}
+
+MainWidget::~MainWidget()
+{
 }
 
 bool MainWidget::isDownloading()
@@ -105,11 +114,12 @@ void MainWidget::downloadJdkButtonFired()
 		{
 			jdkSavedFile->write(jdkDownloadReply->readAll());
 		});
-		connect(jdkDownloadReply, &QNetworkReply::downloadProgress, this, [this](qint64 bytesReceived, qint64 bytesTotal)
-		{
-			double progress = static_cast<double>(bytesReceived) / bytesTotal * 100.0;
-			downloadStatusBar->setValue(progress);
-		});
+		connect(jdkDownloadReply, &QNetworkReply::downloadProgress, this,
+		        [this](qint64 bytesReceived, qint64 bytesTotal)
+		        {
+			        double progress = static_cast<double>(bytesReceived) / bytesTotal * 100.0;
+			        downloadStatusBar->setValue(progress);
+		        });
 		connect(jdkDownloadReply, &QNetworkReply::finished, this, [this]
 		{
 			jdkSavedFile->commit();
@@ -124,4 +134,85 @@ void MainWidget::downloadJdkButtonFired()
 	{
 		jdkDownloadReply->abort();
 	}
+}
+
+static int
+copy_data(struct archive* ar, struct archive* aw)
+{
+	int r;
+	const void* buff;
+	size_t size;
+#if ARCHIVE_VERSION_NUMBER >= 3000000
+	int64_t offset;
+#else
+	off_t offset;
+#endif
+
+	for (;;)
+	{
+		r = archive_read_data_block(ar, &buff, &size, &offset);
+		if (r == ARCHIVE_EOF)
+			return (ARCHIVE_OK);
+		if (r != ARCHIVE_OK)
+			return (r);
+		r = archive_write_data_block(aw, buff, size, offset);
+		if (r != ARCHIVE_OK)
+		{
+			return (r);
+		}
+	}
+}
+
+void MainWidget::unzipButtonFired()
+{
+	qDebug() << "unzip fired";
+	struct archive* a;
+	struct archive* ext;
+	struct archive_entry* entry;
+	int flags;
+	int r;
+
+	/* Select which attributes we want to restore. */
+	flags = ARCHIVE_EXTRACT_TIME;
+	flags |= ARCHIVE_EXTRACT_PERM;
+	flags |= ARCHIVE_EXTRACT_ACL;
+	flags |= ARCHIVE_EXTRACT_FFLAGS;
+
+	a = archive_read_new();
+	archive_read_support_format_all(a);
+	archive_read_support_filter_all(a);
+	ext = archive_write_disk_new();
+	archive_write_disk_set_options(ext, flags);
+	archive_write_disk_set_standard_lookup(ext);
+	if ((r = archive_read_open_filename(a, "./jdk17.zip", 10240)))
+		exit(1);
+	for (;;)
+	{
+		r = archive_read_next_header(a, &entry);
+		if (r == ARCHIVE_EOF)
+			break;
+		if (r < ARCHIVE_OK)
+			fprintf(stderr, "%s\n", archive_error_string(a));
+		if (r < ARCHIVE_WARN)
+			exit(1);
+		r = archive_write_header(ext, entry);
+		if (r < ARCHIVE_OK)
+			fprintf(stderr, "%s\n", archive_error_string(ext));
+		else if (archive_entry_size(entry) > 0)
+		{
+			r = copy_data(a, ext);
+			if (r < ARCHIVE_OK)
+				fprintf(stderr, "%s\n", archive_error_string(ext));
+			if (r < ARCHIVE_WARN)
+				exit(1);
+		}
+		r = archive_write_finish_entry(ext);
+		if (r < ARCHIVE_OK)
+			fprintf(stderr, "%s\n", archive_error_string(ext));
+		if (r < ARCHIVE_WARN)
+			exit(1);
+	}
+	archive_read_free(a);
+	archive_write_close(ext);
+	archive_write_free(ext);
 }
