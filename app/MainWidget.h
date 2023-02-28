@@ -15,9 +15,11 @@ class MainWidget : public QWidget
 	Q_OBJECT
 public:
 	MainWidget();
+	bool isDownloading();
 
 private slots:
 	void downloadButtonFired();
+	void downloadJdkButtonFired();
 private:
 	QVBoxLayout* layout;
 	QPushButton* downloadButton;
@@ -25,5 +27,9 @@ private:
 	QProgressBar* downloadStatusBar;
 	QNetworkAccessManager* netManager;
 	QNetworkReply* downloadReply = nullptr;
-	QSaveFile* downloadFile = nullptr;
+	QSaveFile* downloadFile;
+
+	QPushButton* downloadJdkButton;
+	QNetworkReply* jdkDownloadReply = nullptr;
+	QSaveFile* jdkSavedFile;
 };

@@ -12,22 +12,32 @@
 
 static QString downloadURL =
 	"https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar";
+static QString jdkDownloadURL = "https://corretto.aws/downloads/latest/amazon-corretto-17-x64-windows-jdk.zip";
 
 MainWidget::MainWidget():
 	layout(new QVBoxLayout(this)),
-	downloadButton(new QPushButton("download files")),
+	downloadButton(new QPushButton("Download files")),
 	statusLabel(new QLabel("idle")),
 	downloadStatusBar(new QProgressBar()),
 	netManager(new QNetworkAccessManager(this)),
-	downloadFile(new QSaveFile("./BuildTools.jar", this))
+	downloadFile(new QSaveFile("./BuildTools.jar", this)),
+	downloadJdkButton(new QPushButton("Download Jdk")),
+	jdkSavedFile(new QSaveFile("./jdk17.zip", this))
 {
 	layout->addWidget(downloadButton);
+	layout->addWidget(downloadJdkButton);
 	layout->addWidget(statusLabel);
 	layout->addWidget(downloadStatusBar);
 	downloadStatusBar->setValue(0);
 	layout->addStretch();
 
 	connect(downloadButton, &QPushButton::clicked, this, &MainWidget::downloadButtonFired);
+	connect(downloadJdkButton, &QPushButton::clicked, this, &MainWidget::downloadJdkButtonFired);
+}
+
+bool MainWidget::isDownloading()
+{
+	return downloadReply != nullptr || jdkDownloadReply != nullptr;
 }
 
 void MainWidget::downloadButtonFired()
@@ -56,14 +66,10 @@ void MainWidget::downloadButtonFired()
 		{
 			double progress = static_cast<double>(bytesReceived) / bytesTotal * 100.0;
 			downloadStatusBar->setValue(progress);
-			
-			if (bytesReceived == bytesTotal)
-			{
-				downloadFile->commit();
-			}
 		});
 		connect(downloadReply, &QNetworkReply::finished, this, [this]
 		{
+			downloadFile->commit();
 			downloadReply->deleteLater();
 			statusLabel->setText("Idle");
 			downloadStatusBar->setValue(0);
@@ -74,5 +80,48 @@ void MainWidget::downloadButtonFired()
 	else
 	{
 		downloadReply->abort();
+	}
+}
+
+void MainWidget::downloadJdkButtonFired()
+{
+	if (jdkDownloadReply == nullptr)
+	{
+		downloadJdkButton->setText("Cancel");
+		statusLabel->setText("Downloading");
+		jdkSavedFile->open(QIODeviceBase::WriteOnly);
+		QNetworkRequest request(jdkDownloadURL);
+		request.setHeader(QNetworkRequest::UserAgentHeader,
+		                  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
+		jdkDownloadReply = netManager->get(request);
+		connect(jdkDownloadReply, &QNetworkReply::errorOccurred, this, [this](QNetworkReply::NetworkError code)
+		{
+			qDebug() << "Error: " << code;
+			statusLabel->setText("Idle");
+			downloadStatusBar->setValue(0);
+			jdkSavedFile->cancelWriting();
+		});
+		connect(jdkDownloadReply, &QIODevice::readyRead, downloadFile, [this]()
+		{
+			jdkSavedFile->write(jdkDownloadReply->readAll());
+		});
+		connect(jdkDownloadReply, &QNetworkReply::downloadProgress, this, [this](qint64 bytesReceived, qint64 bytesTotal)
+		{
+			double progress = static_cast<double>(bytesReceived) / bytesTotal * 100.0;
+			downloadStatusBar->setValue(progress);
+		});
+		connect(jdkDownloadReply, &QNetworkReply::finished, this, [this]
+		{
+			jdkSavedFile->commit();
+			jdkDownloadReply->deleteLater();
+			jdkDownloadReply = nullptr;
+			statusLabel->setText("Idle");
+			downloadStatusBar->setValue(0);
+			downloadJdkButton->setText("Download Jdk");
+		});
+	}
+	else
+	{
+		jdkDownloadReply->abort();
 	}
 }
