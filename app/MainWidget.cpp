@@ -15,6 +15,7 @@
 static QString downloadURL =
 	"https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar";
 static QString jdkDownloadURL = "https://corretto.aws/downloads/latest/amazon-corretto-17-x64-windows-jdk.zip";
+static std::string jdkSavedLocation = "jdk17.zip";
 
 MainWidget::MainWidget():
 	layout(new QVBoxLayout(this)),
@@ -24,7 +25,7 @@ MainWidget::MainWidget():
 	netManager(new QNetworkAccessManager(this)),
 	downloadFile(new QSaveFile("./BuildTools.jar", this)),
 	downloadJdkButton(new QPushButton("Download Jdk")),
-	jdkSavedFile(new QSaveFile("./jdk17.zip", this)),
+	jdkSavedFile(new QSaveFile(jdkSavedLocation.c_str(), this)),
 	unzipButton(new QPushButton("Unzip"))
 {
 	layout->addWidget(downloadButton);
@@ -184,7 +185,7 @@ void MainWidget::unzipButtonFired()
 	ext = archive_write_disk_new();
 	archive_write_disk_set_options(ext, flags);
 	archive_write_disk_set_standard_lookup(ext);
-	if ((r = archive_read_open_filename(a, "./jdk17.zip", 10240)))
+	if ((r = archive_read_open_filename(a, jdkSavedLocation.c_str(), 10240)))
 		exit(1);
 	for (;;)
 	{

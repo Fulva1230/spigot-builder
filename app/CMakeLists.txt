@@ -4,3 +4,7 @@ set_target_properties(spigot-builder PROPERTIES
     WIN32_EXECUTABLE ON
     MACOSX_BUNDLE ON
 )
+add_custom_command(TARGET spigot-builder
+                   POST_BUILD
+                   COMMAND cmake ARGS -D target_exe=spigot-builder.exe search_path="${LibArchive_INCLUDE_DIR}/../bin" -P ${CMAKE_CURRENT_LIST_DIR}/bundle.cmake
+                   )
