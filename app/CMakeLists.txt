@@ -7,4 +7,5 @@ set_target_properties(spigot-builder PROPERTIES
 add_custom_command(TARGET spigot-builder
                    POST_BUILD
                    COMMAND cmake ARGS -D target_exe=spigot-builder.exe -D search_path="${LibArchive_INCLUDE_DIR}/../bin" -P ${CMAKE_CURRENT_LIST_DIR}/bundle.cmake
+                   COMMAND ${Qt6_DIR}/../../../bin/windeployqt.exe ${CMAKE_CURRENT_BINARY_DIR}/dist/spigot-builder.exe
                    )
