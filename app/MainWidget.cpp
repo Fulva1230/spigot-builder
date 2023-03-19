@@ -7,15 +7,19 @@
 #include "QtNetwork/QNetworkReply"
 #include "QProgressBar"
 #include "QSaveFile"
+#include "QDir"
 
 #include "archive.h"
 #include "archive_entry.h"
 #include "archive_entry.h"
 
+using namespace std::string_literals;
+
 static QString downloadURL =
 	"https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar";
 static QString jdkDownloadURL = "https://corretto.aws/downloads/latest/amazon-corretto-17-x64-windows-jdk.zip";
-static std::string jdkSavedLocation = "jdk17.zip";
+static std::string tmpDir = "tmp";
+static std::string jdkSavedLocation = tmpDir + "/" + "jdk17.zip";
 
 MainWidget::MainWidget():
 	layout(new QVBoxLayout(this)),
@@ -23,7 +27,7 @@ MainWidget::MainWidget():
 	statusLabel(new QLabel("idle")),
 	downloadStatusBar(new QProgressBar()),
 	netManager(new QNetworkAccessManager(this)),
-	downloadFile(new QSaveFile("./BuildTools.jar", this)),
+	downloadFile(new QSaveFile(QString::fromStdString(tmpDir + "/" + "BuildTools.jar"), this)),
 	downloadJdkButton(new QPushButton("Download Jdk")),
 	jdkSavedFile(new QSaveFile(jdkSavedLocation.c_str(), this)),
 	unzipButton(new QPushButton("Unzip"))
@@ -39,6 +43,7 @@ MainWidget::MainWidget():
 	connect(downloadButton, &QPushButton::clicked, this, &MainWidget::downloadButtonFired);
 	connect(downloadJdkButton, &QPushButton::clicked, this, &MainWidget::downloadJdkButtonFired);
 	connect(unzipButton, &QPushButton::clicked, this, &MainWidget::unzipButtonFired);
+	QDir::current().mkdir(tmpDir.c_str());
 }
 
 MainWidget::~MainWidget()
@@ -196,6 +201,8 @@ void MainWidget::unzipButtonFired()
 			fprintf(stderr, "%s\n", archive_error_string(a));
 		if (r < ARCHIVE_WARN)
 			exit(1);
+		std::string pathname{archive_entry_pathname_utf8(entry)};
+		archive_entry_set_pathname_utf8(entry, (tmpDir + "/" + pathname).c_str());
 		r = archive_write_header(ext, entry);
 		if (r < ARCHIVE_OK)
 			fprintf(stderr, "%s\n", archive_error_string(ext));
