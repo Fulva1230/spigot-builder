@@ -24,7 +24,7 @@ private slots:
 	void downloadButtonFired();
 	void downloadJdkButtonFired();
 	void unzipButtonFired();
-	QFuture<bool> verifyChecksum();
+	QFuture<void> verifyChecksum();
 	void saveConfig();
 	void installButtonFired();
 
@@ -50,4 +50,5 @@ private:
 
 	QPushButton* saveButton;
 	std::string javaExePath;
+	std::optional<bool> jdkSavedFileIntegrity;
 };

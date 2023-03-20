@@ -245,14 +245,14 @@ void MainWidget::unzipButtonFired()
 	archive_write_free(ext);
 }
 
-QFuture<bool> MainWidget::verifyChecksum()
+QFuture<void> MainWidget::verifyChecksum()
 {
 	auto request = QNetworkRequest(
 		QUrl("https://corretto.aws/downloads/latest_checksum/amazon-corretto-17-x64-windows-jdk.zip"));
 	request.setHeader(QNetworkRequest::UserAgentHeader,
 	                  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
 	auto res = netManager->get(request);
-	std::shared_ptr<QPromise<bool>> retVal = std::make_shared<QPromise<bool>>();
+	std::shared_ptr<QPromise<void>> retVal = std::make_shared<QPromise<void>>();
 	connect(res, &QNetworkReply::finished, this, [this, res, retVal]
 	{
 		QFile jdkFile(jdkSavedLocation.c_str());
@@ -263,10 +263,10 @@ QFuture<bool> MainWidget::verifyChecksum()
 			qDebug() << "The computedHash is" << computedHash;
 			qDebug() << "The expectedHash is" << expectedHash;
 			qDebug() << "The checksum result is " << (computedHash.compare(expectedHash) == 0);
-			retVal->addResult(computedHash == expectedHash);
+			jdkSavedFileIntegrity = computedHash == expectedHash;
 			retVal->finish();
 		}
-		retVal->addResult(false);
+		jdkSavedFileIntegrity = false;
 		retVal->finish();
 		res->deleteLater();
 	});
