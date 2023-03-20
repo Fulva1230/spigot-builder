@@ -8,6 +8,10 @@
 #include "QProgressBar"
 #include "QSaveFile"
 #include "QDir"
+#include "QFile"
+#include "QJsonObject"
+#include "QJsonDocument"
+#include "QCryptographicHash"
 
 #include "archive.h"
 #include "archive_entry.h"
@@ -20,30 +24,41 @@ static QString downloadURL =
 static QString jdkDownloadURL = "https://corretto.aws/downloads/latest/amazon-corretto-17-x64-windows-jdk.zip";
 static std::string tmpDir = "tmp";
 static std::string jdkSavedLocation = tmpDir + "/" + "jdk17.zip";
+static constexpr auto configPath = "config.json";
 
 MainWidget::MainWidget():
 	layout(new QVBoxLayout(this)),
+	installButton(new QPushButton("Install")),
 	downloadButton(new QPushButton("Download files")),
 	statusLabel(new QLabel("idle")),
 	downloadStatusBar(new QProgressBar()),
 	netManager(new QNetworkAccessManager(this)),
 	downloadFile(new QSaveFile(QString::fromStdString(tmpDir + "/" + "BuildTools.jar"), this)),
 	downloadJdkButton(new QPushButton("Download Jdk")),
+	verifyChecksumButton(new QPushButton("Verify Checksum")),
 	jdkSavedFile(new QSaveFile(jdkSavedLocation.c_str(), this)),
-	unzipButton(new QPushButton("Unzip"))
+	unzipButton(new QPushButton("Unzip")),
+	saveButton(new QPushButton("Save"))
 {
+	layout->addWidget(installButton);
 	layout->addWidget(downloadButton);
 	layout->addWidget(downloadJdkButton);
+	layout->addWidget(verifyChecksumButton);
 	layout->addWidget(unzipButton);
+	layout->addWidget(saveButton);
 	layout->addWidget(statusLabel);
 	layout->addWidget(downloadStatusBar);
 	downloadStatusBar->setValue(0);
 	layout->addStretch();
 
+	connect(installButton, &QPushButton::clicked, this, &MainWidget::installButtonFired);
 	connect(downloadButton, &QPushButton::clicked, this, &MainWidget::downloadButtonFired);
 	connect(downloadJdkButton, &QPushButton::clicked, this, &MainWidget::downloadJdkButtonFired);
+	connect(verifyChecksumButton, &QPushButton::clicked, this, &MainWidget::verifyChecksum);
 	connect(unzipButton, &QPushButton::clicked, this, &MainWidget::unzipButtonFired);
+	connect(saveButton, &QPushButton::clicked, this, &MainWidget::saveConfig);
 	QDir::current().mkdir(tmpDir.c_str());
+	loadConfig();
 }
 
 MainWidget::~MainWidget()
@@ -202,7 +217,12 @@ void MainWidget::unzipButtonFired()
 		if (r < ARCHIVE_WARN)
 			exit(1);
 		std::string pathname{archive_entry_pathname_utf8(entry)};
-		archive_entry_set_pathname_utf8(entry, (tmpDir + "/" + pathname).c_str());
+		std::string writePath = tmpDir + "/" + pathname;
+		if (writePath.find("java.exe") != std::string::npos)
+		{
+			javaExePath = writePath;
+		}
+		archive_entry_set_pathname_utf8(entry, writePath.c_str());
 		r = archive_write_header(ext, entry);
 		if (r < ARCHIVE_OK)
 			fprintf(stderr, "%s\n", archive_error_string(ext));
@@ -223,4 +243,63 @@ void MainWidget::unzipButtonFired()
 	archive_read_free(a);
 	archive_write_close(ext);
 	archive_write_free(ext);
+}
+
+QFuture<bool> MainWidget::verifyChecksum()
+{
+	auto request = QNetworkRequest(
+		QUrl("https://corretto.aws/downloads/latest_checksum/amazon-corretto-17-x64-windows-jdk.zip"));
+	request.setHeader(QNetworkRequest::UserAgentHeader,
+	                  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
+	auto res = netManager->get(request);
+	std::shared_ptr<QPromise<bool>> retVal = std::make_shared<QPromise<bool>>();
+	connect(res, &QNetworkReply::finished, this, [this, res, retVal]
+	{
+		QFile jdkFile(jdkSavedLocation.c_str());
+		if (jdkFile.open(QIODeviceBase::ReadOnly))
+		{
+			QByteArray computedHash = QCryptographicHash::hash(jdkFile.readAll(), QCryptographicHash::Md5).toHex();
+			QByteArray expectedHash = res->readAll();
+			qDebug() << "The computedHash is" << computedHash;
+			qDebug() << "The expectedHash is" << expectedHash;
+			qDebug() << "The checksum result is " << (computedHash.compare(expectedHash) == 0);
+			retVal->addResult(computedHash == expectedHash);
+			retVal->finish();
+		}
+		retVal->addResult(false);
+		retVal->finish();
+		res->deleteLater();
+	});
+	return retVal->future();
+}
+
+void MainWidget::saveConfig()
+{
+	QJsonObject jsonObject;
+	jsonObject["javaExePath"] = javaExePath.c_str();
+	QFile config{"config.json"};
+	config.open(QIODeviceBase::WriteOnly);
+	config.write(QJsonDocument{jsonObject}.toJson());
+}
+
+void MainWidget::installButtonFired()
+{
+	install();
+}
+
+void MainWidget::loadConfig()
+{
+	QFile config{configPath};
+	config.open(QIODeviceBase::ReadOnly);
+	QJsonDocument doc = QJsonDocument::fromJson(config.readAll());
+	if (doc.isObject())
+	{
+		QJsonObject jsonObj = doc.object();
+		javaExePath = jsonObj["javaExePath"].toString("").toStdString();
+	}
+}
+
+void MainWidget::install()
+{
+	
 }

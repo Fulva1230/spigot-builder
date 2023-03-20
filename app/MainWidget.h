@@ -1,6 +1,7 @@
 #pragma once
 
 #include "QWidget"
+#include "QFuture"
 
 class QProgressBar;
 class QSaveFile;
@@ -23,8 +24,16 @@ private slots:
 	void downloadButtonFired();
 	void downloadJdkButtonFired();
 	void unzipButtonFired();
+	QFuture<bool> verifyChecksum();
+	void saveConfig();
+	void installButtonFired();
+
 private:
+	void loadConfig();
+	void install();
+
 	QVBoxLayout* layout;
+	QPushButton* installButton;
 	QPushButton* downloadButton;
 	QLabel* statusLabel;
 	QProgressBar* downloadStatusBar;
@@ -33,8 +42,12 @@ private:
 	QSaveFile* downloadFile;
 
 	QPushButton* downloadJdkButton;
+	QPushButton* verifyChecksumButton;
 	QNetworkReply* jdkDownloadReply = nullptr;
 	QSaveFile* jdkSavedFile;
 
 	QPushButton* unzipButton;
+
+	QPushButton* saveButton;
+	std::string javaExePath;
 };
