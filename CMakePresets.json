@@ -11,7 +11,7 @@
       "cacheVariables": {
         "CMAKE_C_COMPILER": "cl.exe",
         "CMAKE_CXX_COMPILER": "cl.exe",
-        "CMAKE_PREFIX_PATH": "C:\\Qt\\6.2.4\\msvc2019_64;C:\\Users\\fulva\\source\\repos\\Fulva1230\\libarchive"
+        "CMAKE_PREFIX_PATH": "C:/Qt/6.2.4/msvc2019_64;C:/Users/fulva/source/repos/Fulva1230/libarchive"
       },
       "condition": {
         "type": "equals",
@@ -19,7 +19,7 @@
         "rhs": "Windows"
       },
       "environment": {
-        "PATH": "$penv{PATH};C:\\Qt\\6.2.4\\msvc2019_64\\bin;C:\\Users\\fulva\\source\\repos\\Fulva1230\\libarchive\\bin"
+        "PATH": "$penv{PATH};C:/Qt/6.2.4/msvc2019_64/bin;C:/Users/fulva/source/repos/Fulva1230/libarchive/bin"
       }
     },
     {

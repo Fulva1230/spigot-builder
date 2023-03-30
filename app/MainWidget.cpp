@@ -1,20 +1,19 @@
 #include "MainWidget.h"
 
-#include "QPushButton"
+#include "QCryptographicHash"
+#include "QDir"
+#include "QFile"
+#include "QJsonDocument"
+#include "QJsonObject"
 #include "QLabel"
+#include "QProgressBar"
+#include "QPushButton"
+#include "QSaveFile"
 #include "QVBoxLayout"
 #include "QtNetwork/QNetworkAccessManager"
 #include "QtNetwork/QNetworkReply"
-#include "QProgressBar"
-#include "QSaveFile"
-#include "QDir"
-#include "QFile"
-#include "QJsonObject"
-#include "QJsonDocument"
-#include "QCryptographicHash"
 
 #include "archive.h"
-#include "archive_entry.h"
 #include "archive_entry.h"
 
 using namespace std::string_literals;
@@ -26,19 +25,19 @@ static std::string tmpDir = "tmp";
 static std::string jdkSavedLocation = tmpDir + "/" + "jdk17.zip";
 static constexpr auto configPath = "config.json";
 
-MainWidget::MainWidget():
-	layout(new QVBoxLayout(this)),
-	installButton(new QPushButton("Install")),
-	downloadButton(new QPushButton("Download files")),
-	statusLabel(new QLabel("idle")),
-	downloadStatusBar(new QProgressBar()),
-	netManager(new QNetworkAccessManager(this)),
-	downloadFile(new QSaveFile(QString::fromStdString(tmpDir + "/" + "BuildTools.jar"), this)),
-	downloadJdkButton(new QPushButton("Download Jdk")),
-	verifyChecksumButton(new QPushButton("Verify Checksum")),
-	jdkSavedFile(new QSaveFile(jdkSavedLocation.c_str(), this)),
-	unzipButton(new QPushButton("Unzip")),
-	saveButton(new QPushButton("Save"))
+MainWidget::MainWidget()
+	: layout(new QVBoxLayout(this)),
+	  installButton(new QPushButton("Install")),
+	  downloadButton(new QPushButton("Download files")),
+	  statusLabel(new QLabel("idle")),
+	  downloadStatusBar(new QProgressBar()),
+	  netManager(new QNetworkAccessManager(this)),
+	  downloadFile(new QSaveFile(QString::fromStdString(tmpDir + "/" + "BuildTools.jar"), this)),
+	  downloadJdkButton(new QPushButton("Download Jdk")),
+	  verifyChecksumButton(new QPushButton("Verify Checksum")),
+	  jdkSavedFile(new QSaveFile(jdkSavedLocation.c_str(), this)),
+	  unzipButton(new QPushButton("Unzip")),
+	  saveButton(new QPushButton("Save"))
 {
 	layout->addWidget(installButton);
 	layout->addWidget(downloadButton);
@@ -79,26 +78,22 @@ void MainWidget::downloadButtonFired()
 		downloadFile->open(QIODeviceBase::WriteOnly);
 		QNetworkRequest request(downloadURL);
 		request.setHeader(QNetworkRequest::UserAgentHeader,
-		                  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
+						  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
 		downloadReply = netManager->get(request);
-		connect(downloadReply, &QNetworkReply::errorOccurred, this, [this](QNetworkReply::NetworkError code)
-		{
+		connect(downloadReply, &QNetworkReply::errorOccurred, this, [this](QNetworkReply::NetworkError code) {
 			qDebug() << "Error: " << code;
 			statusLabel->setText("Idle");
 			downloadStatusBar->setValue(0);
 			downloadFile->cancelWriting();
 		});
-		connect(downloadReply, &QIODevice::readyRead, downloadFile, [this]()
-		{
+		connect(downloadReply, &QIODevice::readyRead, downloadFile, [this]() {
 			downloadFile->write(downloadReply->readAll());
 		});
-		connect(downloadReply, &QNetworkReply::downloadProgress, this, [this](qint64 bytesReceived, qint64 bytesTotal)
-		{
+		connect(downloadReply, &QNetworkReply::downloadProgress, this, [this](qint64 bytesReceived, qint64 bytesTotal) {
 			double progress = static_cast<double>(bytesReceived) / bytesTotal * 100.0;
 			downloadStatusBar->setValue(progress);
 		});
-		connect(downloadReply, &QNetworkReply::finished, this, [this]
-		{
+		connect(downloadReply, &QNetworkReply::finished, this, [this] {
 			downloadFile->commit();
 			downloadReply->deleteLater();
 			statusLabel->setText("Idle");
@@ -122,27 +117,23 @@ void MainWidget::downloadJdkButtonFired()
 		jdkSavedFile->open(QIODeviceBase::WriteOnly);
 		QNetworkRequest request(jdkDownloadURL);
 		request.setHeader(QNetworkRequest::UserAgentHeader,
-		                  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
+						  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
 		jdkDownloadReply = netManager->get(request);
-		connect(jdkDownloadReply, &QNetworkReply::errorOccurred, this, [this](QNetworkReply::NetworkError code)
-		{
+		connect(jdkDownloadReply, &QNetworkReply::errorOccurred, this, [this](QNetworkReply::NetworkError code) {
 			qDebug() << "Error: " << code;
 			statusLabel->setText("Idle");
 			downloadStatusBar->setValue(0);
 			jdkSavedFile->cancelWriting();
 		});
-		connect(jdkDownloadReply, &QIODevice::readyRead, downloadFile, [this]()
-		{
+		connect(jdkDownloadReply, &QIODevice::readyRead, downloadFile, [this]() {
 			jdkSavedFile->write(jdkDownloadReply->readAll());
 		});
 		connect(jdkDownloadReply, &QNetworkReply::downloadProgress, this,
-		        [this](qint64 bytesReceived, qint64 bytesTotal)
-		        {
-			        double progress = static_cast<double>(bytesReceived) / bytesTotal * 100.0;
-			        downloadStatusBar->setValue(progress);
-		        });
-		connect(jdkDownloadReply, &QNetworkReply::finished, this, [this]
-		{
+				[this](qint64 bytesReceived, qint64 bytesTotal) {
+					double progress = static_cast<double>(bytesReceived) / bytesTotal * 100.0;
+					downloadStatusBar->setValue(progress);
+				});
+		connect(jdkDownloadReply, &QNetworkReply::finished, this, [this] {
 			jdkSavedFile->commit();
 			jdkDownloadReply->deleteLater();
 			jdkDownloadReply = nullptr;
@@ -245,16 +236,15 @@ void MainWidget::unzipButtonFired()
 	archive_write_free(ext);
 }
 
-QFuture<void> MainWidget::verifyChecksum()
+QFuture<bool> MainWidget::verifyChecksum()
 {
 	auto request = QNetworkRequest(
 		QUrl("https://corretto.aws/downloads/latest_checksum/amazon-corretto-17-x64-windows-jdk.zip"));
 	request.setHeader(QNetworkRequest::UserAgentHeader,
-	                  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
+					  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
 	auto res = netManager->get(request);
-	std::shared_ptr<QPromise<void>> retVal = std::make_shared<QPromise<void>>();
-	connect(res, &QNetworkReply::finished, this, [this, res, retVal]
-	{
+	std::shared_ptr<QPromise<bool>> retVal = std::make_shared<QPromise<bool>>();
+	connect(res, &QNetworkReply::finished, this, [this, res, retVal] {
 		QFile jdkFile(jdkSavedLocation.c_str());
 		if (jdkFile.open(QIODeviceBase::ReadOnly))
 		{
@@ -264,9 +254,11 @@ QFuture<void> MainWidget::verifyChecksum()
 			qDebug() << "The expectedHash is" << expectedHash;
 			qDebug() << "The checksum result is " << (computedHash.compare(expectedHash) == 0);
 			jdkSavedFileIntegrity = computedHash == expectedHash;
+			retVal->addResult(computedHash == expectedHash);
 			retVal->finish();
 		}
 		jdkSavedFileIntegrity = false;
+		retVal->addResult(false);
 		retVal->finish();
 		res->deleteLater();
 	});
@@ -301,5 +293,4 @@ void MainWidget::loadConfig()
 
 void MainWidget::install()
 {
-	
 }

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "QWidget"
 #include "QFuture"
+#include "QWidget"
 
 class QProgressBar;
 class QSaveFile;
@@ -24,7 +24,7 @@ private slots:
 	void downloadButtonFired();
 	void downloadJdkButtonFired();
 	void unzipButtonFired();
-	QFuture<void> verifyChecksum();
+	QFuture<bool> verifyChecksum();
 	void saveConfig();
 	void installButtonFired();
 
