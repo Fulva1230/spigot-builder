@@ -78,7 +78,7 @@ void MainWidget::downloadButtonFired()
 		downloadFile->open(QIODeviceBase::WriteOnly);
 		QNetworkRequest request(downloadURL);
 		request.setHeader(QNetworkRequest::UserAgentHeader,
-						  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
+		                  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
 		downloadReply = netManager->get(request);
 		connect(downloadReply, &QNetworkReply::errorOccurred, this, [this](QNetworkReply::NetworkError code) {
 			qDebug() << "Error: " << code;
@@ -112,35 +112,7 @@ void MainWidget::downloadJdkButtonFired()
 {
 	if (jdkDownloadReply == nullptr)
 	{
-		downloadJdkButton->setText("Cancel");
-		statusLabel->setText("Downloading");
-		jdkSavedFile->open(QIODeviceBase::WriteOnly);
-		QNetworkRequest request(jdkDownloadURL);
-		request.setHeader(QNetworkRequest::UserAgentHeader,
-						  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
-		jdkDownloadReply = netManager->get(request);
-		connect(jdkDownloadReply, &QNetworkReply::errorOccurred, this, [this](QNetworkReply::NetworkError code) {
-			qDebug() << "Error: " << code;
-			statusLabel->setText("Idle");
-			downloadStatusBar->setValue(0);
-			jdkSavedFile->cancelWriting();
-		});
-		connect(jdkDownloadReply, &QIODevice::readyRead, downloadFile, [this]() {
-			jdkSavedFile->write(jdkDownloadReply->readAll());
-		});
-		connect(jdkDownloadReply, &QNetworkReply::downloadProgress, this,
-				[this](qint64 bytesReceived, qint64 bytesTotal) {
-					double progress = static_cast<double>(bytesReceived) / bytesTotal * 100.0;
-					downloadStatusBar->setValue(progress);
-				});
-		connect(jdkDownloadReply, &QNetworkReply::finished, this, [this] {
-			jdkSavedFile->commit();
-			jdkDownloadReply->deleteLater();
-			jdkDownloadReply = nullptr;
-			statusLabel->setText("Idle");
-			downloadStatusBar->setValue(0);
-			downloadJdkButton->setText("Download Jdk");
-		});
+		prepareJdkZip();
 	}
 	else
 	{
@@ -163,10 +135,8 @@ copy_data(struct archive* ar, struct archive* aw)
 	for (;;)
 	{
 		r = archive_read_data_block(ar, &buff, &size, &offset);
-		if (r == ARCHIVE_EOF)
-			return (ARCHIVE_OK);
-		if (r != ARCHIVE_OK)
-			return (r);
+		if (r == ARCHIVE_EOF) return (ARCHIVE_OK);
+		if (r != ARCHIVE_OK) return (r);
 		r = archive_write_data_block(aw, buff, size, offset);
 		if (r != ARCHIVE_OK)
 		{
@@ -196,17 +166,13 @@ void MainWidget::unzipButtonFired()
 	ext = archive_write_disk_new();
 	archive_write_disk_set_options(ext, flags);
 	archive_write_disk_set_standard_lookup(ext);
-	if ((r = archive_read_open_filename(a, jdkSavedLocation.c_str(), 10240)))
-		exit(1);
+	if ((r = archive_read_open_filename(a, jdkSavedLocation.c_str(), 10240))) exit(1);
 	for (;;)
 	{
 		r = archive_read_next_header(a, &entry);
-		if (r == ARCHIVE_EOF)
-			break;
-		if (r < ARCHIVE_OK)
-			fprintf(stderr, "%s\n", archive_error_string(a));
-		if (r < ARCHIVE_WARN)
-			exit(1);
+		if (r == ARCHIVE_EOF) break;
+		if (r < ARCHIVE_OK) fprintf(stderr, "%s\n", archive_error_string(a));
+		if (r < ARCHIVE_WARN) exit(1);
 		std::string pathname{archive_entry_pathname_utf8(entry)};
 		std::string writePath = tmpDir + "/" + pathname;
 		if (writePath.find("java.exe") != std::string::npos)
@@ -215,36 +181,30 @@ void MainWidget::unzipButtonFired()
 		}
 		archive_entry_set_pathname_utf8(entry, writePath.c_str());
 		r = archive_write_header(ext, entry);
-		if (r < ARCHIVE_OK)
-			fprintf(stderr, "%s\n", archive_error_string(ext));
+		if (r < ARCHIVE_OK) fprintf(stderr, "%s\n", archive_error_string(ext));
 		else if (archive_entry_size(entry) > 0)
 		{
 			r = copy_data(a, ext);
-			if (r < ARCHIVE_OK)
-				fprintf(stderr, "%s\n", archive_error_string(ext));
-			if (r < ARCHIVE_WARN)
-				exit(1);
+			if (r < ARCHIVE_OK) fprintf(stderr, "%s\n", archive_error_string(ext));
+			if (r < ARCHIVE_WARN) exit(1);
 		}
 		r = archive_write_finish_entry(ext);
-		if (r < ARCHIVE_OK)
-			fprintf(stderr, "%s\n", archive_error_string(ext));
-		if (r < ARCHIVE_WARN)
-			exit(1);
+		if (r < ARCHIVE_OK) fprintf(stderr, "%s\n", archive_error_string(ext));
+		if (r < ARCHIVE_WARN) exit(1);
 	}
 	archive_read_free(a);
 	archive_write_close(ext);
 	archive_write_free(ext);
 }
 
-QFuture<bool> MainWidget::verifyChecksum()
+void MainWidget::verifyChecksum()
 {
 	auto request = QNetworkRequest(
 		QUrl("https://corretto.aws/downloads/latest_checksum/amazon-corretto-17-x64-windows-jdk.zip"));
 	request.setHeader(QNetworkRequest::UserAgentHeader,
-					  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
+	                  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
 	auto res = netManager->get(request);
-	std::shared_ptr<QPromise<bool>> retVal = std::make_shared<QPromise<bool>>();
-	connect(res, &QNetworkReply::finished, this, [this, res, retVal] {
+	connect(res, &QNetworkReply::finished, this, [this, res] {
 		QFile jdkFile(jdkSavedLocation.c_str());
 		if (jdkFile.open(QIODeviceBase::ReadOnly))
 		{
@@ -254,15 +214,13 @@ QFuture<bool> MainWidget::verifyChecksum()
 			qDebug() << "The expectedHash is" << expectedHash;
 			qDebug() << "The checksum result is " << (computedHash.compare(expectedHash) == 0);
 			jdkSavedFileIntegrity = computedHash == expectedHash;
-			retVal->addResult(computedHash == expectedHash);
-			retVal->finish();
+		}else
+		{
+			jdkSavedFileIntegrity = false;
 		}
-		jdkSavedFileIntegrity = false;
-		retVal->addResult(false);
-		retVal->finish();
+		emit jdkZipChecksumVerified(jdkSavedFileIntegrity.value());
 		res->deleteLater();
 	});
-	return retVal->future();
 }
 
 void MainWidget::saveConfig()
@@ -277,6 +235,57 @@ void MainWidget::saveConfig()
 void MainWidget::installButtonFired()
 {
 	install();
+}
+
+void MainWidget::prepareJdkZip()
+{
+	connect(this, &MainWidget::jdkZipChecksumVerified, this, [this](bool valid) {
+		if (!valid)
+		{
+			connect(this, &MainWidget::jdkZipSaved, this, [this]() {
+				emit JdkZipPrepared();
+			}, Qt::SingleShotConnection);
+			downloadJdkZip();
+		}
+		else
+		{
+			emit JdkZipPrepared();
+		}
+	}, Qt::SingleShotConnection);
+	verifyChecksum();
+}
+
+void MainWidget::downloadJdkZip()
+{
+	downloadJdkButton->setText("Cancel");
+	statusLabel->setText("Downloading");
+	jdkSavedFile->open(QIODeviceBase::WriteOnly);
+	QNetworkRequest request(jdkDownloadURL);
+	request.setHeader(QNetworkRequest::UserAgentHeader,
+	                  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
+	jdkDownloadReply = netManager->get(request);
+	connect(jdkDownloadReply, &QNetworkReply::errorOccurred, this, [this](QNetworkReply::NetworkError code) {
+		qDebug() << "Error: " << code;
+		statusLabel->setText("Idle");
+		downloadStatusBar->setValue(0);
+		jdkSavedFile->cancelWriting();
+	});
+	connect(jdkDownloadReply, &QIODevice::readyRead, downloadFile, [this]() {
+		jdkSavedFile->write(jdkDownloadReply->readAll());
+	});
+	connect(jdkDownloadReply, &QNetworkReply::downloadProgress, this,
+	        [this](qint64 bytesReceived, qint64 bytesTotal) {
+		        double progress = static_cast<double>(bytesReceived) / bytesTotal * 100.0;
+		        downloadStatusBar->setValue(progress);
+	        });
+	connect(jdkDownloadReply, &QNetworkReply::finished, this, [this] {
+		jdkSavedFile->commit();
+		jdkDownloadReply->deleteLater();
+		jdkDownloadReply = nullptr;
+		statusLabel->setText("Idle");
+		downloadStatusBar->setValue(0);
+		downloadJdkButton->setText("Download Jdk");
+	});
 }
 
 void MainWidget::loadConfig()

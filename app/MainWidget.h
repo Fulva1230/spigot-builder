@@ -15,6 +15,7 @@ class QuaZip;
 class MainWidget : public QWidget
 {
 	Q_OBJECT
+
 public:
 	MainWidget();
 	~MainWidget();
@@ -24,11 +25,18 @@ private slots:
 	void downloadButtonFired();
 	void downloadJdkButtonFired();
 	void unzipButtonFired();
-	QFuture<bool> verifyChecksum();
+	void verifyChecksum();
 	void saveConfig();
 	void installButtonFired();
+	void prepareJdkZip();
+
+signals:
+	void jdkZipChecksumVerified(bool valid);
+	void jdkZipSaved();
+	void JdkZipPrepared();
 
 private:
+	void downloadJdkZip();
 	void loadConfig();
 	void install();
 
