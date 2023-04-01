@@ -112,6 +112,9 @@ void MainWidget::downloadJdkButtonFired()
 {
 	if (jdkDownloadReply == nullptr)
 	{
+		connect(this, &std::remove_pointer_t<decltype(this)>::JdkZipPrepared, this, [] {
+			qDebug() << "Prepared jdkzip!";
+		}, Qt::SingleShotConnection);
 		prepareJdkZip();
 	}
 	else
@@ -214,7 +217,8 @@ void MainWidget::verifyChecksum()
 			qDebug() << "The expectedHash is" << expectedHash;
 			qDebug() << "The checksum result is " << (computedHash.compare(expectedHash) == 0);
 			jdkSavedFileIntegrity = computedHash == expectedHash;
-		}else
+		}
+		else
 		{
 			jdkSavedFileIntegrity = false;
 		}
@@ -240,16 +244,16 @@ void MainWidget::installButtonFired()
 void MainWidget::prepareJdkZip()
 {
 	connect(this, &MainWidget::jdkZipChecksumVerified, this, [this](bool valid) {
-		if (!valid)
+		if (valid)
 		{
-			connect(this, &MainWidget::jdkZipSaved, this, [this]() {
-				emit JdkZipPrepared();
-			}, Qt::SingleShotConnection);
-			downloadJdkZip();
+			emit JdkZipPrepared();
 		}
 		else
 		{
-			emit JdkZipPrepared();
+			connect(this, &MainWidget::jdkZipSaved, this, [this]() {
+				prepareJdkZip();
+			}, Qt::SingleShotConnection);
+			downloadJdkZip();
 		}
 	}, Qt::SingleShotConnection);
 	verifyChecksum();
@@ -285,6 +289,7 @@ void MainWidget::downloadJdkZip()
 		statusLabel->setText("Idle");
 		downloadStatusBar->setValue(0);
 		downloadJdkButton->setText("Download Jdk");
+		emit jdkZipSaved();
 	});
 }
 
