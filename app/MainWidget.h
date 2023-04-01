@@ -10,7 +10,6 @@ class QVBoxLayout;
 class QPushButton;
 class QLabel;
 class QNetworkReply;
-class QuaZip;
 
 class MainWidget : public QWidget
 {
