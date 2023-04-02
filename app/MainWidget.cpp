@@ -116,7 +116,7 @@ void MainWidget::downloadJdkButtonFired()
 		jdkPrepareTask = new JdkPrepareTask(this);
 		connect(jdkPrepareTask, &JdkPrepareTask::stateChanged, this, [this](auto state){
 			qDebug() << "state is" << QMetaEnum::fromType<decltype(state)>().valueToKey(state);
-			if(state == JdkPrepareTask::ZIP_FILE_VERIFIED){
+			if(state == JdkPrepareTask::FINISHED){
 				jdkPrepareTask->deleteLater();
 				downloadJdkButton->setText("Download Jdk");
 				jdkPrepareTask = nullptr;

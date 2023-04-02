@@ -17,6 +17,7 @@ class JdkPrepareTask : public QObject
 	Q_OBJECT
 public:
 	JdkPrepareTask(QObject* parent = nullptr);
+	~JdkPrepareTask();
 	enum State : int
 	{
 		PENDING_RUN,
@@ -39,21 +40,30 @@ signals:
 private slots:
 	void handleJdkZipChecksumVerificationResult(bool res);
 	void handleJdkZipSaved();
+	void handleJdkExeVerificationResult(bool res);
+	void handleJdkZipExtracted();
 
 signals:
 	void jdkZipSaved();
 	void jdkZipChecksumVerified(bool res);
+	void javaExeVerified(bool res);
+	void jdkZipExtracted();
 
 private:
 	void setState(State state);
 	void downloadJdkZip();
 	void verifyJdkZip();
+	void extractJdkZip();
+	void verifyJavaExe();
+	void loadConfig();
+	void saveConfig();
 
 	QNetworkAccessManager* netManager;
 	State _state = PENDING_RUN;
 	QSaveFile* jdkZipFile;
 	QNetworkReply* jdkDownloadReply = nullptr;
-	QFile* savedFile;
+	QFile* configFile;
+	std::string javaExePath;
 };
 
 
