@@ -14,6 +14,7 @@
 #include "QtNetwork/QNetworkReply"
 #include "QMetaEnum"
 #include <QProcess>
+#include <QTextEdit>
 
 #include "BuildTask.h"
 #include "archive.h"
@@ -32,110 +33,27 @@ static std::string buildDir = "build";
 
 MainWidget::MainWidget()
 	: layout(new QVBoxLayout(this)),
-	  installButton(new QPushButton("Install")),
-	  downloadButton(new QPushButton("Download files")),
 	  statusLabel(new QLabel("idle")),
 	  downloadStatusBar(new QProgressBar()),
 	  netManager(new QNetworkAccessManager(this)),
 	  downloadFile(new QSaveFile(QString::fromStdString(buildToolPath), this)),
-	  downloadJdkButton(new QPushButton("Download Jdk")),
-	  verifyChecksumButton(new QPushButton("Verify Checksum")),
+	  outputText(new QTextEdit()),
 	  jdkSavedFile(new QSaveFile(jdkSavedLocation.c_str(), this)),
-	  buildButton(new QPushButton("Build")),
-	  saveButton(new QPushButton("Save"))
+	  buildButton(new QPushButton("Build"))
 {
-	layout->addWidget(installButton);
-	layout->addWidget(downloadButton);
-	layout->addWidget(downloadJdkButton);
-	layout->addWidget(verifyChecksumButton);
 	layout->addWidget(buildButton);
-	layout->addWidget(saveButton);
 	layout->addWidget(statusLabel);
 	layout->addWidget(downloadStatusBar);
+	layout->addWidget(outputText);
 	downloadStatusBar->setValue(0);
-	layout->addStretch();
 
-	connect(installButton, &QPushButton::clicked, this, &MainWidget::installButtonFired);
-	connect(downloadButton, &QPushButton::clicked, this, &MainWidget::downloadButtonFired);
-	connect(downloadJdkButton, &QPushButton::clicked, this, &MainWidget::downloadJdkButtonFired);
-	connect(verifyChecksumButton, &QPushButton::clicked, this, &MainWidget::verifyChecksum);
 	connect(buildButton, &QPushButton::clicked, this, &MainWidget::buildButtonFired);
-	connect(saveButton, &QPushButton::clicked, this, &MainWidget::saveConfig);
 	QDir::current().mkdir(tmpDir.c_str());
 	QDir::current().mkdir(buildDir.c_str());
-	loadConfig();
 }
 
 MainWidget::~MainWidget()
 {
-}
-
-bool MainWidget::isDownloading()
-{
-	return downloadReply != nullptr || jdkDownloadReply != nullptr;
-}
-
-void MainWidget::downloadButtonFired()
-{
-	if (downloadReply == nullptr)
-	{
-		downloadButton->setText("Cancel");
-		statusLabel->setText("Downloading");
-		downloadFile->open(QIODeviceBase::WriteOnly);
-		QNetworkRequest request(downloadURL);
-		request.setHeader(QNetworkRequest::UserAgentHeader,
-		                  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
-		downloadReply = netManager->get(request);
-		connect(downloadReply, &QNetworkReply::errorOccurred, this, [this](QNetworkReply::NetworkError code) {
-			qDebug() << "Error: " << code;
-			statusLabel->setText("Idle");
-			downloadStatusBar->setValue(0);
-			downloadFile->cancelWriting();
-		});
-		connect(downloadReply, &QIODevice::readyRead, downloadFile, [this]() {
-			downloadFile->write(downloadReply->readAll());
-		});
-		connect(downloadReply, &QNetworkReply::downloadProgress, this, [this](qint64 bytesReceived, qint64 bytesTotal) {
-			double progress = static_cast<double>(bytesReceived) / bytesTotal * 100.0;
-			downloadStatusBar->setValue(progress);
-		});
-		connect(downloadReply, &QNetworkReply::finished, this, [this] {
-			downloadFile->commit();
-			downloadReply->deleteLater();
-			statusLabel->setText("Idle");
-			downloadStatusBar->setValue(0);
-			downloadReply = nullptr;
-			downloadButton->setText("Download files");
-		});
-	}
-	else
-	{
-		downloadReply->abort();
-	}
-}
-
-void MainWidget::downloadJdkButtonFired()
-{
-	if(jdkPrepareTask == nullptr){
-		jdkPrepareTask = new BuildTask(this);
-		connect(jdkPrepareTask, &BuildTask::stateChanged, this, [this](auto state){
-			qDebug() << "state is" << QMetaEnum::fromType<decltype(state)>().valueToKey(state);
-			if(state == BuildTask::FINISHED){
-				jdkPrepareTask->deleteLater();
-				downloadJdkButton->setText("Download Jdk");
-				jdkPrepareTask = nullptr;
-			}
-		});
-		connect(jdkPrepareTask, &BuildTask::downloadingProgress, this, [](int progress){
-			qDebug() << "download progress is " << progress;
-		});
-		jdkPrepareTask->run();
-		downloadJdkButton->setText("Cancel");
-	}else{
-		jdkPrepareTask->deleteLater();
-		jdkPrepareTask = nullptr;
-		downloadJdkButton->setText("Download Jdk");
-	}
 }
 
 static int
@@ -256,58 +174,6 @@ void MainWidget::installButtonFired()
 	install();
 }
 
-void MainWidget::prepareJdkZip()
-{
-	connect(this, &MainWidget::jdkZipChecksumVerified, this, [this](bool valid) {
-		if (valid)
-		{
-			emit JdkZipPrepared();
-		}
-		else
-		{
-			connect(this, &MainWidget::jdkZipSaved, this, [this]() {
-				prepareJdkZip();
-			}, Qt::SingleShotConnection);
-			downloadJdkZip();
-		}
-	}, Qt::SingleShotConnection);
-	verifyChecksum();
-}
-
-void MainWidget::downloadJdkZip()
-{
-	downloadJdkButton->setText("Cancel");
-	statusLabel->setText("Downloading");
-	jdkSavedFile->open(QIODeviceBase::WriteOnly);
-	QNetworkRequest request(jdkDownloadURL);
-	request.setHeader(QNetworkRequest::UserAgentHeader,
-	                  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
-	jdkDownloadReply = netManager->get(request);
-	connect(jdkDownloadReply, &QNetworkReply::errorOccurred, this, [this](QNetworkReply::NetworkError code) {
-		qDebug() << "Error: " << code;
-		statusLabel->setText("Idle");
-		downloadStatusBar->setValue(0);
-		jdkSavedFile->cancelWriting();
-	});
-	connect(jdkDownloadReply, &QIODevice::readyRead, downloadFile, [this]() {
-		jdkSavedFile->write(jdkDownloadReply->readAll());
-	});
-	connect(jdkDownloadReply, &QNetworkReply::downloadProgress, this,
-	        [this](qint64 bytesReceived, qint64 bytesTotal) {
-		        double progress = static_cast<double>(bytesReceived) / bytesTotal * 100.0;
-		        downloadStatusBar->setValue(progress);
-	        });
-	connect(jdkDownloadReply, &QNetworkReply::finished, this, [this] {
-		jdkSavedFile->commit();
-		jdkDownloadReply->deleteLater();
-		jdkDownloadReply = nullptr;
-		statusLabel->setText("Idle");
-		downloadStatusBar->setValue(0);
-		downloadJdkButton->setText("Download Jdk");
-		emit jdkZipSaved();
-	});
-}
-
 void MainWidget::loadConfig()
 {
 	QFile config{configPath};
@@ -328,21 +194,23 @@ void MainWidget::buildButtonFired()
 	if(jdkPrepareTask == nullptr){
 		jdkPrepareTask = new BuildTask(this);
 		connect(jdkPrepareTask, &BuildTask::stateChanged, this, [this](auto state){
-			qDebug() << "state is" << QMetaEnum::fromType<decltype(state)>().valueToKey(state);
+			auto stateText = QMetaEnum::fromType<decltype(state)>().valueToKey(state);
+			qDebug() << "state is" << stateText;
+			statusLabel->setText(stateText);
 			if(state == BuildTask::FINISHED){
-				downloadJdkButton->setText("Download Jdk");
 				jdkPrepareTask->deleteLater();
 				jdkPrepareTask = nullptr;
 			}
 		});
-		connect(jdkPrepareTask, &BuildTask::downloadingProgress, this, [](int progress){
-			qDebug() << "download progress is " << progress;
+		connect(jdkPrepareTask, &BuildTask::buildingText, this, [this](const QByteArray& text){
+			outputText->append(text);
+		});
+		connect(jdkPrepareTask, &BuildTask::downloadingProgress, this, [this](int progress){
+			downloadStatusBar->setValue(progress);
 		});
 		jdkPrepareTask->run();
-		downloadJdkButton->setText("Cancel");
 	}else{
 		jdkPrepareTask->deleteLater();
 		jdkPrepareTask = nullptr;
-		downloadJdkButton->setText("Download Jdk");
 	}
 }

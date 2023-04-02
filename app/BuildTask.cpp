@@ -312,7 +312,8 @@ void BuildTask::build()
 	auto buildProcess = new QProcess(this);
 	buildProcess->setWorkingDirectory(buildDir.c_str());
 	connect(buildProcess, &QProcess::readyRead, this, [buildProcess, this]{
-		qDebug() << buildProcess->readAll();
+		auto text =  buildProcess->readAll();
+		emit buildingText(text);
 	});
 	connect(buildProcess, &QProcess::finished, buildProcess, &QProcess::deleteLater);
 	connect(buildProcess, &QProcess::finished, this, [this]{

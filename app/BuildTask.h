@@ -41,6 +41,7 @@ public:
 signals:
 	void stateChanged(BuildTask::State state);
 	void downloadingProgress(int progress);
+	void buildingText(QByteArray text);
 
 private slots:
 	void handleJdkZipChecksumVerificationResult(bool res);
