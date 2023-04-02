@@ -16,13 +16,13 @@
 #include "archive.h"
 #include "archive_entry.h"
 
-static QString jdkDownloadURL = "https://corretto.aws/downloads/latest/amazon-corretto-17-x64-windows-jdk.zip";
-static QString buildToolDownloadURL =
+static const QString jdkDownloadURL = "https://corretto.aws/downloads/latest/amazon-corretto-17-x64-windows-jdk.zip";
+static const QString buildToolDownloadURL =
 	"https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar";
-static std::string tmpDir = "tmp";
-static std::string jdkSavedLocation = tmpDir + "/" + "jdk17.zip";
-static std::string buildToolPath = tmpDir + "/" + "BuildTools.jar";
-static std::string buildDir = "build";
+static const std::string tmpDir = "tmp";
+static const std::string jdkSavedLocation = tmpDir + "/" + "jdk17.zip";
+static const std::string buildToolPath = tmpDir + "/" + "BuildTools.jar";
+static const std::string buildDir = "build";
 
 BuildTask::BuildTask(QObject* parent)
 	: QObject(parent),
