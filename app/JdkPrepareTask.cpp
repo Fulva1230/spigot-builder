@@ -17,7 +17,7 @@ JdkPrepareTask::JdkPrepareTask(QObject* parent)
 	: QObject(parent),
 	  netManager(new QNetworkAccessManager(this)),
 	  jdkZipFile(new QSaveFile(jdkSavedLocation.c_str(), this)),
-	  savedFile(new QFile("jdk.config.json"))
+	  savedFile(new QFile("jdk.config.json", this))
 {
 	connect(this, SIGNAL(jdkZipChecksumVerified(bool)), this, SLOT(handleJdkZipChecksumVerificationResult(bool)));
 	connect(this, SIGNAL(jdkZipSaved()), this, SLOT(handleJdkZipSaved()));
@@ -38,7 +38,6 @@ void JdkPrepareTask::downloadJdkZip()
 		request.setHeader(QNetworkRequest::UserAgentHeader,
 						  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
 		jdkDownloadReply = netManager->get(request);
-		jdkDownloadReply->setParent(this);
 		setState(ZIP_FILE_DOWNLOADING);
 		connect(jdkDownloadReply, &std::remove_pointer_t<decltype(jdkDownloadReply)>::readyRead, this, [this] {
 			jdkZipFile->write(jdkDownloadReply->readAll());
@@ -70,7 +69,6 @@ void JdkPrepareTask::verifyJdkZip()
 	request.setHeader(QNetworkRequest::UserAgentHeader,
 					  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
 	auto hashReply = netManager->get(request);
-	hashReply->setParent(this);
 	connect(hashReply, &QNetworkReply::finished, this, [this, hashReply] {
 		QFile jdkFile(jdkSavedLocation.c_str());
 		bool verified = false;

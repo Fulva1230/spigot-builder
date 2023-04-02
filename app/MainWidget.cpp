@@ -112,17 +112,26 @@ void MainWidget::downloadButtonFired()
 
 void MainWidget::downloadJdkButtonFired()
 {
-	auto task = new JdkPrepareTask(this);
-	connect(task, &JdkPrepareTask::stateChanged, this, [task](auto state){
-		qDebug() << "state is" << QMetaEnum::fromType<decltype(state)>().valueToKey(state);
-		if(state == JdkPrepareTask::ZIP_FILE_VERIFIED){
-			task->deleteLater();
-		}
-	});
-	connect(task, &JdkPrepareTask::downloadingProgress, this, [](int progress){
-		qDebug() << "download progress is " << progress;
-	});
-	task->run();
+	if(jdkPrepareTask == nullptr){
+		jdkPrepareTask = new JdkPrepareTask(this);
+		connect(jdkPrepareTask, &JdkPrepareTask::stateChanged, this, [this](auto state){
+			qDebug() << "state is" << QMetaEnum::fromType<decltype(state)>().valueToKey(state);
+			if(state == JdkPrepareTask::ZIP_FILE_VERIFIED){
+				jdkPrepareTask->deleteLater();
+				downloadJdkButton->setText("Download Jdk");
+				jdkPrepareTask = nullptr;
+			}
+		});
+		connect(jdkPrepareTask, &JdkPrepareTask::downloadingProgress, this, [](int progress){
+			qDebug() << "download progress is " << progress;
+		});
+		jdkPrepareTask->run();
+		downloadJdkButton->setText("Cancel");
+	}else{
+		jdkPrepareTask->deleteLater();
+		jdkPrepareTask = nullptr;
+		downloadJdkButton->setText("Download Jdk");
+	}
 }
 
 static int
