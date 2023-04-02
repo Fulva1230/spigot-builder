@@ -10,7 +10,7 @@ class QVBoxLayout;
 class QPushButton;
 class QLabel;
 class QNetworkReply;
-class JdkPrepareTask;
+class BuildTask;
 
 class MainWidget : public QWidget
 {
@@ -61,5 +61,5 @@ private:
 	std::string javaExePath;
 	std::optional<bool> jdkSavedFileIntegrity;
 
-	JdkPrepareTask* jdkPrepareTask = nullptr;
+	BuildTask* jdkPrepareTask = nullptr;
 };

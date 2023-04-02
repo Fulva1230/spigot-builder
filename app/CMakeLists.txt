@@ -1,4 +1,4 @@
-add_executable(spigot-builder main.cpp "MainWidget.h" "MainWidget.cpp" JdkPrepareTask.cpp JdkPrepareTask.h)
+add_executable(spigot-builder main.cpp "MainWidget.h" "MainWidget.cpp" BuildTask.cpp BuildTask.h)
 target_link_libraries(spigot-builder Qt6::Widgets Qt6::Network LibArchive::LibArchive)
 set_target_properties(spigot-builder PROPERTIES
     WIN32_EXECUTABLE ON

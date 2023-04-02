@@ -15,7 +15,7 @@
 #include "QMetaEnum"
 #include <QProcess>
 
-#include "JdkPrepareTask.h"
+#include "BuildTask.h"
 #include "archive.h"
 #include "archive_entry.h"
 
@@ -117,16 +117,16 @@ void MainWidget::downloadButtonFired()
 void MainWidget::downloadJdkButtonFired()
 {
 	if(jdkPrepareTask == nullptr){
-		jdkPrepareTask = new JdkPrepareTask(this);
-		connect(jdkPrepareTask, &JdkPrepareTask::stateChanged, this, [this](auto state){
+		jdkPrepareTask = new BuildTask(this);
+		connect(jdkPrepareTask, &BuildTask::stateChanged, this, [this](auto state){
 			qDebug() << "state is" << QMetaEnum::fromType<decltype(state)>().valueToKey(state);
-			if(state == JdkPrepareTask::FINISHED){
+			if(state == BuildTask::FINISHED){
 				jdkPrepareTask->deleteLater();
 				downloadJdkButton->setText("Download Jdk");
 				jdkPrepareTask = nullptr;
 			}
 		});
-		connect(jdkPrepareTask, &JdkPrepareTask::downloadingProgress, this, [](int progress){
+		connect(jdkPrepareTask, &BuildTask::downloadingProgress, this, [](int progress){
 			qDebug() << "download progress is " << progress;
 		});
 		jdkPrepareTask->run();
@@ -326,24 +326,16 @@ void MainWidget::install()
 void MainWidget::buildButtonFired()
 {
 	if(jdkPrepareTask == nullptr){
-		jdkPrepareTask = new JdkPrepareTask(this);
-		connect(jdkPrepareTask, &JdkPrepareTask::stateChanged, this, [this](auto state){
+		jdkPrepareTask = new BuildTask(this);
+		connect(jdkPrepareTask, &BuildTask::stateChanged, this, [this](auto state){
 			qDebug() << "state is" << QMetaEnum::fromType<decltype(state)>().valueToKey(state);
-			if(state == JdkPrepareTask::FINISHED){
-				auto buildProcess = new QProcess(this);
-				buildProcess->setWorkingDirectory(buildDir.c_str());
-				connect(buildProcess, &QProcess::readyRead, this, [buildProcess, this]{
-					qDebug() << buildProcess->readAll();
-				});
-				connect(buildProcess, &QProcess::finished, buildProcess, &QProcess::deleteLater);
-				buildProcess->start(jdkPrepareTask->getJavaExePath(), {"-jar", QDir::current().absoluteFilePath(buildToolPath.c_str())});
-
+			if(state == BuildTask::FINISHED){
 				downloadJdkButton->setText("Download Jdk");
 				jdkPrepareTask->deleteLater();
 				jdkPrepareTask = nullptr;
 			}
 		});
-		connect(jdkPrepareTask, &JdkPrepareTask::downloadingProgress, this, [](int progress){
+		connect(jdkPrepareTask, &BuildTask::downloadingProgress, this, [](int progress){
 			qDebug() << "download progress is " << progress;
 		});
 		jdkPrepareTask->run();

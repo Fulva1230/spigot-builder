@@ -2,8 +2,8 @@
 // Created by fulva on 2023/4/1.
 //
 
-#ifndef JDKPREPARETASK_H
-#define JDKPREPARETASK_H
+#ifndef BUILDTASK_H
+#define BUILDTASK_H
 
 #include "QObject"
 
@@ -12,12 +12,12 @@ class QSaveFile;
 class QNetworkReply;
 class QFile;
 
-class JdkPrepareTask : public QObject
+class BuildTask : public QObject
 {
 	Q_OBJECT
 public:
-	JdkPrepareTask(QObject* parent = nullptr);
-	~JdkPrepareTask();
+	BuildTask(QObject* parent = nullptr);
+	~BuildTask();
 	enum State : int
 	{
 		PENDING_RUN,
@@ -25,6 +25,10 @@ public:
 		ZIP_FILE_SAVED,
 		ZIP_FILE_VERIFIED,
 		ZIP_FILE_EXTRACTED,
+		JAVA_EXE_VERIFIED,
+		BUILD_TOOL_DOWNLOADING,
+		BUILD_TOOL_DOWNLOADED,
+		BUILDING,
 		FINISHED,
 		ABORTED
 	};
@@ -35,7 +39,7 @@ public:
 	QString getJavaExePath();
 
 signals:
-	void stateChanged(JdkPrepareTask::State state);
+	void stateChanged(BuildTask::State state);
 	void downloadingProgress(int progress);
 
 private slots:
@@ -43,29 +47,35 @@ private slots:
 	void handleJdkZipSaved();
 	void handleJdkExeVerificationResult(bool res);
 	void handleJdkZipExtracted();
+	void handleBuildToolDownloaded();
 
 signals:
 	void jdkZipSaved();
 	void jdkZipChecksumVerified(bool res);
 	void javaExeVerified(bool res);
 	void jdkZipExtracted();
+	void buildJarDownloaded();
 
 private:
 	void setState(State state);
 	void downloadJdkZip();
+	void downloadBuildJar();
 	void verifyJdkZip();
 	void extractJdkZip();
 	void verifyJavaExe();
+	void build();
 	void loadConfig();
 	void saveConfig();
 
 	QNetworkAccessManager* netManager;
 	State _state = PENDING_RUN;
 	QSaveFile* jdkZipFile;
+	QSaveFile* buildJarFile;
 	QNetworkReply* jdkDownloadReply = nullptr;
 	QFile* configFile;
 	std::string javaExePath;
+	QNetworkReply* buildToolDownloadReply = nullptr;
 };
 
 
-#endif//JDKPREPARETASK_H
+#endif//BUILDTASK_H

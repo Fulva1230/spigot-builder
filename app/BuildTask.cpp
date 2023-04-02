@@ -2,7 +2,7 @@
 // Created by fulva on 2023/4/1.
 //
 
-#include "JdkPrepareTask.h"
+#include "BuildTask.h"
 
 #include <QDir>
 #include <QFile>
@@ -17,13 +17,18 @@
 #include "archive_entry.h"
 
 static QString jdkDownloadURL = "https://corretto.aws/downloads/latest/amazon-corretto-17-x64-windows-jdk.zip";
+static QString buildToolDownloadURL =
+	"https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar";
 static std::string tmpDir = "tmp";
 static std::string jdkSavedLocation = tmpDir + "/" + "jdk17.zip";
+static std::string buildToolPath = tmpDir + "/" + "BuildTools.jar";
+static std::string buildDir = "build";
 
-JdkPrepareTask::JdkPrepareTask(QObject* parent)
+BuildTask::BuildTask(QObject* parent)
 	: QObject(parent),
 	  netManager(new QNetworkAccessManager(this)),
 	  jdkZipFile(new QSaveFile(jdkSavedLocation.c_str(), this)),
+	  buildJarFile(new QSaveFile(buildToolPath.c_str(), this)),
 	  configFile(new QFile("jdk.config.json", this))
 {
 	loadConfig();
@@ -31,16 +36,17 @@ JdkPrepareTask::JdkPrepareTask(QObject* parent)
 	connect(this, SIGNAL(jdkZipSaved()), this, SLOT(handleJdkZipSaved()));
 	connect(this, SIGNAL(javaExeVerified(bool)), this, SLOT(handleJdkExeVerificationResult(bool)));
 	connect(this, SIGNAL(jdkZipExtracted()), this, SLOT(handleJdkZipExtracted()));
+	connect(this, SIGNAL(buildJarDownloaded()), this, SLOT(handleBuildToolDownloaded()));
 }
-void JdkPrepareTask::run()
+void BuildTask::run()
 {
 	verifyJavaExe();
 }
-JdkPrepareTask::State JdkPrepareTask::state()
+BuildTask::State BuildTask::state()
 {
 	return _state;
 }
-void JdkPrepareTask::downloadJdkZip()
+void BuildTask::downloadJdkZip()
 {
 	if (jdkZipFile->open(QIODeviceBase::WriteOnly))
 	{
@@ -49,6 +55,10 @@ void JdkPrepareTask::downloadJdkZip()
 						  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
 		jdkDownloadReply = netManager->get(request);
 		setState(ZIP_FILE_DOWNLOADING);
+		connect(jdkDownloadReply, &std::remove_pointer_t<decltype(jdkDownloadReply)>::errorOccurred, this, [this](QNetworkReply::NetworkError code){
+			qDebug() << "Error: " << code;
+			jdkZipFile->cancelWriting();
+		});
 		connect(jdkDownloadReply, &std::remove_pointer_t<decltype(jdkDownloadReply)>::readyRead, this, [this] {
 			jdkZipFile->write(jdkDownloadReply->readAll());
 		});
@@ -63,7 +73,7 @@ void JdkPrepareTask::downloadJdkZip()
 		connect(jdkDownloadReply, SIGNAL(finished()), jdkDownloadReply, SLOT(deleteLater()));
 	}
 }
-void JdkPrepareTask::setState(JdkPrepareTask::State state)
+void BuildTask::setState(BuildTask::State state)
 {
 	if (_state != state)
 	{
@@ -72,7 +82,7 @@ void JdkPrepareTask::setState(JdkPrepareTask::State state)
 	}
 }
 
-void JdkPrepareTask::verifyJdkZip()
+void BuildTask::verifyJdkZip()
 {
 	auto request = QNetworkRequest(
 		QUrl("https://corretto.aws/downloads/latest_checksum/amazon-corretto-17-x64-windows-jdk.zip"));
@@ -99,7 +109,7 @@ void JdkPrepareTask::verifyJdkZip()
 	});
 	connect(hashReply, SIGNAL(finished()), hashReply, SLOT(deleteLater()));
 }
-void JdkPrepareTask::handleJdkZipChecksumVerificationResult(bool res)
+void BuildTask::handleJdkZipChecksumVerificationResult(bool res)
 {
 	if (!res)
 	{
@@ -110,7 +120,7 @@ void JdkPrepareTask::handleJdkZipChecksumVerificationResult(bool res)
 		extractJdkZip();
 	}
 }
-void JdkPrepareTask::handleJdkZipSaved()
+void BuildTask::handleJdkZipSaved()
 {
 	verifyJdkZip();
 }
@@ -140,7 +150,7 @@ copy_data(struct archive* ar, struct archive* aw)
 	}
 }
 
-void JdkPrepareTask::extractJdkZip()
+void BuildTask::extractJdkZip()
 {
 	struct archive* a;
 	struct archive* ext;
@@ -192,7 +202,7 @@ void JdkPrepareTask::extractJdkZip()
 	setState(ZIP_FILE_EXTRACTED);
 	emit jdkZipExtracted();
 }
-void JdkPrepareTask::loadConfig()
+void BuildTask::loadConfig()
 {
 	if (configFile->open(QIODeviceBase::ReadOnly))
 	{
@@ -205,12 +215,12 @@ void JdkPrepareTask::loadConfig()
 		configFile->close();
 	}
 }
-JdkPrepareTask::~JdkPrepareTask()
+BuildTask::~BuildTask()
 {
 	saveConfig();
 }
 
-void JdkPrepareTask::saveConfig()
+void BuildTask::saveConfig()
 {
 	if (configFile->open(QIODeviceBase::WriteOnly))
 	{
@@ -220,7 +230,7 @@ void JdkPrepareTask::saveConfig()
 		configFile->close();
 	}
 }
-void JdkPrepareTask::verifyJavaExe()
+void BuildTask::verifyJavaExe()
 {
 	if (QFile(javaExePath.c_str()).exists())
 	{
@@ -229,6 +239,7 @@ void JdkPrepareTask::verifyJavaExe()
 			QString retVal = process->readAll();
 			if (exitStatus == QProcess::NormalExit && exitCode == 0 && retVal.indexOf("openjdk") == 0)
 			{
+				setState(JAVA_EXE_VERIFIED);
 				emit javaExeVerified(true);
 			}
 			else
@@ -242,19 +253,70 @@ void JdkPrepareTask::verifyJavaExe()
 		emit javaExeVerified(false);
 	}
 }
-void JdkPrepareTask::handleJdkExeVerificationResult(bool res)
+void BuildTask::handleJdkExeVerificationResult(bool res)
 {
 	if(res){
-		setState(FINISHED);
+		downloadBuildJar();
 	}else{
 		verifyJdkZip();
 	}
 }
-void JdkPrepareTask::handleJdkZipExtracted()
+void BuildTask::handleJdkZipExtracted()
 {
 	verifyJavaExe();
 }
-QString JdkPrepareTask::getJavaExePath()
+QString BuildTask::getJavaExePath()
 {
 	return QDir::current().absoluteFilePath(javaExePath.c_str());
+}
+void BuildTask::downloadBuildJar()
+{
+	if(QFile(buildToolPath.c_str()).exists()){
+		setState(BUILD_TOOL_DOWNLOADED);
+		emit buildJarDownloaded();
+	}else{
+		setState(BUILD_TOOL_DOWNLOADING);
+		if(buildJarFile->open(QIODeviceBase::WriteOnly)){
+			QNetworkRequest request(buildToolDownloadURL);
+			request.setHeader(QNetworkRequest::UserAgentHeader,
+							  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
+			buildToolDownloadReply = netManager->get(request);
+			connect(buildToolDownloadReply, &QNetworkReply::errorOccurred, this, [this](QNetworkReply::NetworkError code) {
+				qDebug() << "Error: " << code;
+				buildJarFile->cancelWriting();
+			});
+			connect(buildToolDownloadReply, &QIODevice::readyRead, this, [this]() {
+				buildJarFile->write(buildToolDownloadReply->readAll());
+			});
+			connect(buildToolDownloadReply, &QNetworkReply::downloadProgress, this, [this](qint64 bytesReceived, qint64 bytesTotal) {
+				emit downloadingProgress(100 * bytesReceived / bytesTotal);
+			});
+			connect(buildToolDownloadReply, &QNetworkReply::finished, this, [this] {
+				buildJarFile->commit();
+				buildToolDownloadReply = nullptr;
+				setState(BUILD_TOOL_DOWNLOADED);
+				emit buildJarDownloaded();
+			});
+			connect(buildToolDownloadReply, SIGNAL(finished()), buildToolDownloadReply, SLOT(deleteLater()));
+		}
+	}
+}
+void BuildTask::handleBuildToolDownloaded()
+{
+	build();
+}
+void BuildTask::build()
+{
+	setState(BUILDING);
+
+	auto buildProcess = new QProcess(this);
+	buildProcess->setWorkingDirectory(buildDir.c_str());
+	connect(buildProcess, &QProcess::readyRead, this, [buildProcess, this]{
+		qDebug() << buildProcess->readAll();
+	});
+	connect(buildProcess, &QProcess::finished, buildProcess, &QProcess::deleteLater);
+	connect(buildProcess, &QProcess::finished, this, [this]{
+		setState(FINISHED);
+	});
+	buildProcess->start(getJavaExePath(), {"-jar", QDir::current().absoluteFilePath(buildToolPath.c_str())});
 }
