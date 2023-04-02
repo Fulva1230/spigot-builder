@@ -13,6 +13,7 @@
 #include "QtNetwork/QNetworkAccessManager"
 #include "QtNetwork/QNetworkReply"
 #include "QMetaEnum"
+#include <QProcess>
 
 #include "JdkPrepareTask.h"
 #include "archive.h"
@@ -26,6 +27,8 @@ static QString jdkDownloadURL = "https://corretto.aws/downloads/latest/amazon-co
 static std::string tmpDir = "tmp";
 static std::string jdkSavedLocation = tmpDir + "/" + "jdk17.zip";
 static constexpr auto configPath = "config.json";
+static std::string buildToolPath = tmpDir + "/" + "BuildTools.jar";
+static std::string buildDir = "build";
 
 MainWidget::MainWidget()
 	: layout(new QVBoxLayout(this)),
@@ -34,18 +37,18 @@ MainWidget::MainWidget()
 	  statusLabel(new QLabel("idle")),
 	  downloadStatusBar(new QProgressBar()),
 	  netManager(new QNetworkAccessManager(this)),
-	  downloadFile(new QSaveFile(QString::fromStdString(tmpDir + "/" + "BuildTools.jar"), this)),
+	  downloadFile(new QSaveFile(QString::fromStdString(buildToolPath), this)),
 	  downloadJdkButton(new QPushButton("Download Jdk")),
 	  verifyChecksumButton(new QPushButton("Verify Checksum")),
 	  jdkSavedFile(new QSaveFile(jdkSavedLocation.c_str(), this)),
-	  unzipButton(new QPushButton("Unzip")),
+	  buildButton(new QPushButton("Build")),
 	  saveButton(new QPushButton("Save"))
 {
 	layout->addWidget(installButton);
 	layout->addWidget(downloadButton);
 	layout->addWidget(downloadJdkButton);
 	layout->addWidget(verifyChecksumButton);
-	layout->addWidget(unzipButton);
+	layout->addWidget(buildButton);
 	layout->addWidget(saveButton);
 	layout->addWidget(statusLabel);
 	layout->addWidget(downloadStatusBar);
@@ -56,9 +59,10 @@ MainWidget::MainWidget()
 	connect(downloadButton, &QPushButton::clicked, this, &MainWidget::downloadButtonFired);
 	connect(downloadJdkButton, &QPushButton::clicked, this, &MainWidget::downloadJdkButtonFired);
 	connect(verifyChecksumButton, &QPushButton::clicked, this, &MainWidget::verifyChecksum);
-	connect(unzipButton, &QPushButton::clicked, this, &MainWidget::unzipButtonFired);
+	connect(buildButton, &QPushButton::clicked, this, &MainWidget::buildButtonFired);
 	connect(saveButton, &QPushButton::clicked, this, &MainWidget::saveConfig);
 	QDir::current().mkdir(tmpDir.c_str());
+	QDir::current().mkdir(buildDir.c_str());
 	loadConfig();
 }
 
@@ -318,4 +322,35 @@ void MainWidget::loadConfig()
 
 void MainWidget::install()
 {
+}
+void MainWidget::buildButtonFired()
+{
+	if(jdkPrepareTask == nullptr){
+		jdkPrepareTask = new JdkPrepareTask(this);
+		connect(jdkPrepareTask, &JdkPrepareTask::stateChanged, this, [this](auto state){
+			qDebug() << "state is" << QMetaEnum::fromType<decltype(state)>().valueToKey(state);
+			if(state == JdkPrepareTask::FINISHED){
+				auto buildProcess = new QProcess(this);
+				buildProcess->setWorkingDirectory(buildDir.c_str());
+				connect(buildProcess, &QProcess::readyRead, this, [buildProcess, this]{
+					qDebug() << buildProcess->readAll();
+				});
+				connect(buildProcess, &QProcess::finished, buildProcess, &QProcess::deleteLater);
+				buildProcess->start(jdkPrepareTask->getJavaExePath(), {"-jar", QDir::current().absoluteFilePath(buildToolPath.c_str())});
+
+				downloadJdkButton->setText("Download Jdk");
+				jdkPrepareTask->deleteLater();
+				jdkPrepareTask = nullptr;
+			}
+		});
+		connect(jdkPrepareTask, &JdkPrepareTask::downloadingProgress, this, [](int progress){
+			qDebug() << "download progress is " << progress;
+		});
+		jdkPrepareTask->run();
+		downloadJdkButton->setText("Cancel");
+	}else{
+		jdkPrepareTask->deleteLater();
+		jdkPrepareTask = nullptr;
+		downloadJdkButton->setText("Download Jdk");
+	}
 }

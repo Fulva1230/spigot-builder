@@ -32,6 +32,7 @@ public:
 
 	void run();
 	State state();
+	QString getJavaExePath();
 
 signals:
 	void stateChanged(JdkPrepareTask::State state);

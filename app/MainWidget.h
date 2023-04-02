@@ -22,6 +22,7 @@ public:
 	bool isDownloading();
 
 private slots:
+	void buildButtonFired();
 	void downloadButtonFired();
 	void downloadJdkButtonFired();
 	void unzipButtonFired();
@@ -54,7 +55,7 @@ private:
 	QNetworkReply* jdkDownloadReply = nullptr;
 	QSaveFile* jdkSavedFile;
 
-	QPushButton* unzipButton;
+	QPushButton* buildButton;
 
 	QPushButton* saveButton;
 	std::string javaExePath;

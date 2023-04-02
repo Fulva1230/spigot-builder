@@ -254,3 +254,7 @@ void JdkPrepareTask::handleJdkZipExtracted()
 {
 	verifyJavaExe();
 }
+QString JdkPrepareTask::getJavaExePath()
+{
+	return QDir::current().absoluteFilePath(javaExePath.c_str());
+}
