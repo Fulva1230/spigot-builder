@@ -44,8 +44,9 @@ MainWidget::MainWidget()
 	layout->addWidget(buildButton);
 	layout->addWidget(statusLabel);
 	layout->addWidget(downloadStatusBar);
-	layout->addWidget(outputText);
 	downloadStatusBar->setValue(0);
+	layout->addWidget(outputText);
+	outputText->setReadOnly(true);
 
 	connect(buildButton, &QPushButton::clicked, this, &MainWidget::buildButtonFired);
 	QDir::current().mkdir(tmpDir.c_str());
