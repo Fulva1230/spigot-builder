@@ -12,7 +12,9 @@
 #include "QVBoxLayout"
 #include "QtNetwork/QNetworkAccessManager"
 #include "QtNetwork/QNetworkReply"
+#include "QMetaEnum"
 
+#include "JdkPrepareTask.h"
 #include "archive.h"
 #include "archive_entry.h"
 
@@ -110,17 +112,17 @@ void MainWidget::downloadButtonFired()
 
 void MainWidget::downloadJdkButtonFired()
 {
-	if (jdkDownloadReply == nullptr)
-	{
-		connect(this, &std::remove_pointer_t<decltype(this)>::JdkZipPrepared, this, [] {
-			qDebug() << "Prepared jdkzip!";
-		}, Qt::SingleShotConnection);
-		prepareJdkZip();
-	}
-	else
-	{
-		jdkDownloadReply->abort();
-	}
+	auto task = new JdkPrepareTask(this);
+	connect(task, &JdkPrepareTask::stateChanged, this, [task](auto state){
+		qDebug() << "state is" << QMetaEnum::fromType<decltype(state)>().valueToKey(state);
+		if(state == JdkPrepareTask::ZIP_FILE_VERIFIED){
+			task->deleteLater();
+		}
+	});
+	connect(task, &JdkPrepareTask::downloadingProgress, this, [](int progress){
+		qDebug() << "download progress is " << progress;
+	});
+	task->run();
 }
 
 static int

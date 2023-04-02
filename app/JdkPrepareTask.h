@@ -8,6 +8,9 @@
 #include "QObject"
 
 class QNetworkAccessManager;
+class QSaveFile;
+class QNetworkReply;
+class QFile;
 
 class JdkPrepareTask : public QObject
 {
@@ -19,8 +22,10 @@ public:
 		PENDING_RUN,
 		ZIP_FILE_DOWNLOADING,
 		ZIP_FILE_SAVED,
+		ZIP_FILE_VERIFIED,
 		ZIP_FILE_EXTRACTED,
 		FINISHED,
+		ABORTED
 	};
 	Q_ENUM(State)
 
@@ -29,10 +34,26 @@ public:
 
 signals:
 	void stateChanged(JdkPrepareTask::State state);
+	void downloadingProgress(int progress);
+
+private slots:
+	void handleJdkZipChecksumVerificationResult(bool res);
+	void handleJdkZipSaved();
+
+signals:
+	void jdkZipSaved();
+	void jdkZipChecksumVerified(bool res);
 
 private:
+	void setState(State state);
+	void downloadJdkZip();
+	void verifyJdkZip();
+
 	QNetworkAccessManager* netManager;
 	State _state = PENDING_RUN;
+	QSaveFile* jdkZipFile;
+	QNetworkReply* jdkDownloadReply = nullptr;
+	QFile* savedFile;
 };
 
 
