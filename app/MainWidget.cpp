@@ -221,6 +221,7 @@ void MainWidget::buildButtonFired()
 			buildButton->setText("Build");
 		});
 		buildButton->setText("Cancel");
+		outputText->clear();
 		jdkPrepareTask->run();
 	}else{
 		jdkPrepareTask->deleteLater();
