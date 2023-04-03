@@ -12,6 +12,7 @@ class QLabel;
 class QNetworkReply;
 class BuildTask;
 class QTextEdit;
+class QLineEdit;
 
 class MainWidget : public QWidget
 {
@@ -38,6 +39,7 @@ private:
 	void install();
 
 	QVBoxLayout* layout;
+	QLineEdit* buildVersionEdit;
 	QLabel* statusLabel;
 	QProgressBar* downloadStatusBar;
 	QNetworkAccessManager* netManager;

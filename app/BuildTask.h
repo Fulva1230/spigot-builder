@@ -37,6 +37,7 @@ public:
 	void run();
 	State state();
 	QString getJavaExePath();
+	void setBuildVersion(std::string version);
 
 signals:
 	void stateChanged(BuildTask::State state);
@@ -76,6 +77,7 @@ private:
 	QFile* configFile;
 	std::string javaExePath;
 	QNetworkReply* buildToolDownloadReply = nullptr;
+	std::string _buildVersion;
 };
 
 

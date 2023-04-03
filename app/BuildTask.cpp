@@ -55,7 +55,7 @@ void BuildTask::downloadJdkZip()
 						  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
 		jdkDownloadReply = netManager->get(request);
 		setState(ZIP_FILE_DOWNLOADING);
-		connect(jdkDownloadReply, &std::remove_pointer_t<decltype(jdkDownloadReply)>::errorOccurred, this, [this](QNetworkReply::NetworkError code){
+		connect(jdkDownloadReply, &std::remove_pointer_t<decltype(jdkDownloadReply)>::errorOccurred, this, [this](QNetworkReply::NetworkError code) {
 			qDebug() << "Error: " << code;
 			jdkZipFile->cancelWriting();
 		});
@@ -249,15 +249,20 @@ void BuildTask::verifyJavaExe()
 		});
 		connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), process, SLOT(deleteLater()));
 		process->start(javaExePath.c_str(), {"--version"});
-	}else{
+	}
+	else
+	{
 		emit javaExeVerified(false);
 	}
 }
 void BuildTask::handleJdkExeVerificationResult(bool res)
 {
-	if(res){
+	if (res)
+	{
 		downloadBuildJar();
-	}else{
+	}
+	else
+	{
 		verifyJdkZip();
 	}
 }
@@ -271,12 +276,16 @@ QString BuildTask::getJavaExePath()
 }
 void BuildTask::downloadBuildJar()
 {
-	if(QFile(buildToolPath.c_str()).exists()){
+	if (QFile(buildToolPath.c_str()).exists())
+	{
 		setState(BUILD_TOOL_DOWNLOADED);
 		emit buildJarDownloaded();
-	}else{
+	}
+	else
+	{
 		setState(BUILD_TOOL_DOWNLOADING);
-		if(buildJarFile->open(QIODeviceBase::WriteOnly)){
+		if (buildJarFile->open(QIODeviceBase::WriteOnly))
+		{
 			QNetworkRequest request(buildToolDownloadURL);
 			request.setHeader(QNetworkRequest::UserAgentHeader,
 							  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
@@ -311,13 +320,23 @@ void BuildTask::build()
 
 	auto buildProcess = new QProcess(this);
 	buildProcess->setWorkingDirectory(buildDir.c_str());
-	connect(buildProcess, &QProcess::readyRead, this, [buildProcess, this]{
-		auto text =  buildProcess->readAll();
+	connect(buildProcess, &QProcess::readyRead, this, [buildProcess, this] {
+		auto text = buildProcess->readAll();
 		emit buildingText(text);
 	});
 	connect(buildProcess, &QProcess::finished, buildProcess, &QProcess::deleteLater);
-	connect(buildProcess, &QProcess::finished, this, [this]{
+	connect(buildProcess, &QProcess::finished, this, [this] {
 		setState(FINISHED);
 	});
-	buildProcess->start(getJavaExePath(), {"-jar", QDir::current().absoluteFilePath(buildToolPath.c_str())});
+	QStringList args;
+	args.append({"-jar", QDir::current().absoluteFilePath(buildToolPath.c_str())});
+	if (std::size(_buildVersion) > 0)
+	{
+		args.append({"--rev", QString::fromStdString(_buildVersion)});
+	}
+	buildProcess->start(getJavaExePath(), args);
+}
+void BuildTask::setBuildVersion(std::string version)
+{
+	_buildVersion = std::move(version);
 }

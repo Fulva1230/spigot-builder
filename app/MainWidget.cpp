@@ -15,6 +15,7 @@
 #include "QMetaEnum"
 #include <QProcess>
 #include <QTextEdit>
+#include <QLineEdit>
 
 #include "BuildTask.h"
 #include "archive.h"
@@ -33,6 +34,7 @@ static std::string buildDir = "build";
 
 MainWidget::MainWidget()
 	: layout(new QVBoxLayout(this)),
+	  buildVersionEdit(new QLineEdit()),
 	  statusLabel(new QLabel("idle")),
 	  downloadStatusBar(new QProgressBar()),
 	  netManager(new QNetworkAccessManager(this)),
@@ -42,6 +44,8 @@ MainWidget::MainWidget()
 	  buildButton(new QPushButton("Build"))
 {
 	layout->addWidget(buildButton);
+	layout->addWidget(new QLabel("Type build version"));
+	layout->addWidget(buildVersionEdit),
 	layout->addWidget(statusLabel);
 	layout->addWidget(downloadStatusBar);
 	downloadStatusBar->setValue(0);
@@ -194,6 +198,7 @@ void MainWidget::buildButtonFired()
 {
 	if(jdkPrepareTask == nullptr){
 		jdkPrepareTask = new BuildTask(this);
+		jdkPrepareTask->setBuildVersion(buildVersionEdit->text().toStdString());
 		connect(jdkPrepareTask, &BuildTask::stateChanged, this, [this](auto state){
 			auto stateText = QMetaEnum::fromType<decltype(state)>().valueToKey(state);
 			qDebug() << "state is" << stateText;
@@ -209,6 +214,10 @@ void MainWidget::buildButtonFired()
 		connect(jdkPrepareTask, &BuildTask::downloadingProgress, this, [this](int progress){
 			downloadStatusBar->setValue(progress);
 		});
+		connect(jdkPrepareTask, &QObject::destroyed, this, [this]{
+			buildButton->setText("Build");
+		});
+		buildButton->setText("Cancel");
 		jdkPrepareTask->run();
 	}else{
 		jdkPrepareTask->deleteLater();
