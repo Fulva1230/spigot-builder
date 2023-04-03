@@ -67,10 +67,16 @@ void BuildTask::downloadJdkZip()
 		});
 		connect(jdkDownloadReply, &std::remove_pointer_t<decltype(jdkDownloadReply)>::finished, this, [this] {
 			jdkZipFile->commit();
-			setState(ZIP_FILE_SAVED);
-			emit jdkZipSaved();
+			if(jdkDownloadReply->error() == QNetworkReply::NoError){
+				setState(ZIP_FILE_SAVED);
+				emit jdkZipSaved();
+			}else{
+				setState(ABORTED);
+			}
 		});
 		connect(jdkDownloadReply, SIGNAL(finished()), jdkDownloadReply, SLOT(deleteLater()));
+	}else{
+		setState(ABORTED);
 	}
 }
 void BuildTask::setState(BuildTask::State state)
@@ -283,13 +289,13 @@ void BuildTask::downloadBuildJar()
 	}
 	else
 	{
-		setState(BUILD_TOOL_DOWNLOADING);
 		if (buildJarFile->open(QIODeviceBase::WriteOnly))
 		{
 			QNetworkRequest request(buildToolDownloadURL);
 			request.setHeader(QNetworkRequest::UserAgentHeader,
 							  "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36");
 			buildToolDownloadReply = netManager->get(request);
+			setState(BUILD_TOOL_DOWNLOADING);
 			connect(buildToolDownloadReply, &QNetworkReply::errorOccurred, this, [this](QNetworkReply::NetworkError code) {
 				qDebug() << "Error: " << code;
 				buildJarFile->cancelWriting();
@@ -301,12 +307,18 @@ void BuildTask::downloadBuildJar()
 				emit downloadingProgress(100 * bytesReceived / bytesTotal);
 			});
 			connect(buildToolDownloadReply, &QNetworkReply::finished, this, [this] {
-				buildJarFile->commit();
+				if(buildToolDownloadReply->error() == QNetworkReply::NoError){
+					buildJarFile->commit();
+					setState(BUILD_TOOL_DOWNLOADED);
+					emit buildJarDownloaded();
+				}else{
+					setState(ABORTED);
+				}
 				buildToolDownloadReply = nullptr;
-				setState(BUILD_TOOL_DOWNLOADED);
-				emit buildJarDownloaded();
 			});
 			connect(buildToolDownloadReply, SIGNAL(finished()), buildToolDownloadReply, SLOT(deleteLater()));
+		}else{
+			setState(ABORTED);
 		}
 	}
 }

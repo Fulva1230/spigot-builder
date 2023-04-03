@@ -206,6 +206,9 @@ void MainWidget::buildButtonFired()
 			if(state == BuildTask::FINISHED){
 				jdkPrepareTask->deleteLater();
 				jdkPrepareTask = nullptr;
+			}else if(state == BuildTask::ABORTED){
+				jdkPrepareTask->deleteLater();
+				jdkPrepareTask = nullptr;
 			}
 		});
 		connect(jdkPrepareTask, &BuildTask::buildingText, this, [this](const QByteArray& text){
