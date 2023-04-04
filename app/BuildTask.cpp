@@ -337,10 +337,10 @@ void BuildTask::build()
 		auto text = buildProcess->readAll();
 		emit buildingText(text);
 	});
-	connect(buildProcess, &QProcess::finished, buildProcess, &QProcess::deleteLater);
 	connect(buildProcess, &QProcess::finished, this, [this] {
 		setState(FINISHED);
 	});
+	connect(buildProcess, &QProcess::finished, buildProcess, &QProcess::deleteLater);
 	QStringList args;
 	args.append({"-jar", QDir::current().absoluteFilePath(buildToolPath.c_str())});
 	if (std::size(_buildVersion) > 0)
