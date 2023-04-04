@@ -66,13 +66,14 @@ void BuildTask::downloadJdkZip()
 			emit downloadingProgress(100 * bytesReceived / bytesTotal);
 		});
 		connect(jdkDownloadReply, &std::remove_pointer_t<decltype(jdkDownloadReply)>::finished, this, [this] {
-			jdkZipFile->commit();
 			if(jdkDownloadReply->error() == QNetworkReply::NoError){
+				jdkZipFile->commit();
 				setState(ZIP_FILE_SAVED);
 				emit jdkZipSaved();
 			}else{
 				setState(ABORTED);
 			}
+			jdkDownloadReply = nullptr;
 		});
 		connect(jdkDownloadReply, SIGNAL(finished()), jdkDownloadReply, SLOT(deleteLater()));
 	}else{
