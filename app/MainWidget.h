@@ -24,35 +24,14 @@ public:
 
 private slots:
 	void buildButtonFired();
-	void unzipButtonFired();
-	void verifyChecksum();
-	void saveConfig();
-	void installButtonFired();
-
-signals:
-	void jdkZipChecksumVerified(bool valid);
-	void jdkZipSaved();
-	void JdkZipPrepared();
 
 private:
-	void loadConfig();
-	void install();
-
 	QVBoxLayout* layout;
 	QLineEdit* buildVersionEdit;
 	QLabel* statusLabel;
 	QProgressBar* downloadStatusBar;
-	QNetworkAccessManager* netManager;
-	QNetworkReply* downloadReply = nullptr;
-	QSaveFile* downloadFile;
 	QTextEdit* outputText;
-
-	QNetworkReply* jdkDownloadReply = nullptr;
-	QSaveFile* jdkSavedFile;
 	QPushButton* buildButton;
-
-	std::string javaExePath;
-	std::optional<bool> jdkSavedFileIntegrity;
 
 	BuildTask* jdkPrepareTask = nullptr;
 };

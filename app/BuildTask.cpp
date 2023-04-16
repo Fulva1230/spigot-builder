@@ -37,6 +37,9 @@ BuildTask::BuildTask(QObject* parent)
 	connect(this, SIGNAL(javaExeVerified(bool)), this, SLOT(handleJdkExeVerificationResult(bool)));
 	connect(this, SIGNAL(jdkZipExtracted()), this, SLOT(handleJdkZipExtracted()));
 	connect(this, SIGNAL(buildJarDownloaded()), this, SLOT(handleBuildToolDownloaded()));
+
+	QDir::current().mkdir(tmpDir.c_str());
+	QDir::current().mkdir(buildDir.c_str());
 }
 void BuildTask::run()
 {
